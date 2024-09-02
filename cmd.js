@@ -19,8 +19,8 @@ const debug = require("debug")("Eleventy:DevServer");
 
 try {
   const defaults = Cli.getDefaultOptions();
-  for(let key in defaults) {
-    if(key.toLowerCase() !== key) {
+  for (let key in defaults) {
+    if (key.toLowerCase() !== key) {
       defaults[key.toLowerCase()] = defaults[key];
       delete defaults[key];
     }
@@ -32,15 +32,11 @@ try {
       "input", // alias for dir
       "port",
     ],
-    boolean: [
-      "version",
-      "help",
-      "domdiff",
-    ],
+    boolean: ["version", "help", "domdiff", "cssforcereload"],
     default: defaults,
     unknown: function (unknownArgument) {
       throw new Error(
-        `We don’t know what '${unknownArgument}' is. Use --help to see the list of supported commands.`
+        `We don’t know what '${unknownArgument}' is. Use --help to see the list of supported commands.`,
       );
     },
   });
@@ -65,6 +61,7 @@ try {
       input: argv.dir || argv.input,
       port: argv.port,
       domDiff: argv.domdiff,
+      cssForceReload: argv.cssforcereload,
     });
 
     process.on("SIGINT", async () => {
@@ -73,5 +70,5 @@ try {
     });
   }
 } catch (e) {
-  Logger.fatal("Fatal Error:", e)
+  Logger.fatal("Fatal Error:", e);
 }

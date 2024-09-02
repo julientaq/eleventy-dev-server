@@ -2,16 +2,16 @@ const pkg = require("./package.json");
 const EleventyDevServer = require("./server.js");
 
 const Logger = {
-  info: function(...args) {
-    console.log( "[11ty/eleventy-dev-server]", ...args );
+  info: function (...args) {
+    console.log("[11ty/eleventy-dev-server]", ...args);
   },
-  error: function(...args) {
-    console.error( "[11ty/eleventy-dev-server]", ...args );
+  error: function (...args) {
+    console.error("[11ty/eleventy-dev-server]", ...args);
   },
-  fatal: function(...args) {
+  fatal: function (...args) {
     Logger.error(...args);
     process.exitCode = 1;
-  }
+  },
 };
 
 Logger.log = Logger.info;
@@ -45,30 +45,41 @@ Arguments:
      --domdiff=false    (disabled)
        Apply HTML changes without a full page reload.
 
+     --cssforcereload       (enabled)
+     --cssforcereload=false (disabled, default)
+       Reload the page on css update
+
      --help`;
   }
 
   static getDefaultOptions() {
     return {
+      cssReload: "false",
       port: "8080",
       input: ".",
       domDiff: true,
-    }
+      cssForceReload: false,
+    };
   }
 
   async serve(options = {}) {
     this.options = Object.assign(Cli.getDefaultOptions(), options);
 
-    this.server = EleventyDevServer.getServer("eleventy-dev-server-cli", this.options.input, {
-      // TODO allow server configuration extensions
-      showVersion: true,
-      logger: Logger,
-      domDiff: this.options.domDiff,
+    this.server = EleventyDevServer.getServer(
+      "eleventy-dev-server-cli",
+      this.options.input,
+      {
+        // TODO allow server configuration extensions
+        showVersion: true,
+        logger: Logger,
+        domDiff: this.options.domDiff,
+        cssForceReload: this.options.cssForceReload,
 
-      // CLI watches all files in the folder by default
-      // this is different from Eleventy usage!
-      watch: [ this.options.input ],
-    });
+        // CLI watches all files in the folder by default
+        // this is different from Eleventy usage!
+        watch: [this.options.input],
+      },
+    );
 
     this.server.serve(this.options.port);
 
@@ -77,7 +88,7 @@ Arguments:
   }
 
   close() {
-    if(this.server) {
+    if (this.server) {
       return this.server.close();
     }
   }
@@ -85,5 +96,5 @@ Arguments:
 
 module.exports = {
   Logger,
-  Cli
-}
+  Cli,
+};

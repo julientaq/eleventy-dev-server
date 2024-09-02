@@ -22,22 +22,23 @@ if (!globalThis.URLPattern) {
 
 const DEFAULT_OPTIONS = {
   port: 8080,
-  liveReload: true,     // Enable live reload at all
-  showAllHosts: false,  // IP address based hosts (other than localhost)
+  liveReload: true, // Enable live reload at all
+  showAllHosts: false, // IP address based hosts (other than localhost)
   injectedScriptsFolder: ".11ty", // Change the name of the special folder used for injected scripts
   portReassignmentRetryCount: 10, // number of times to increment the port if in use
-  https: {},            // `key` and `cert`, required for http/2 and https
-  domDiff: true,        // Use morphdom to apply DOM diffing delta updates to HTML
-  showVersion: false,   // Whether or not to show the server version on the command line.
-  encoding: "utf-8",    // Default file encoding
-  pathPrefix: "/",      // May be overridden by Eleventy, adds a virtual base directory to your project
-  watch: [],            // Globs to pass to separate dev server chokidar for watching
-  aliases: {},          // Aliasing feature
+  https: {}, // `key` and `cert`, required for http/2 and https
+  domDiff: true, // Use morphdom to apply DOM diffing delta updates to HTML
+  showVersion: false, // Whether or not to show the server version on the command line.
+  encoding: "utf-8", // Default file encoding
+  cssForceReload: false, // CSS wont trigger a full reload
+  pathPrefix: "/", // May be overridden by Eleventy, adds a virtual base directory to your project
+  watch: [], // Globs to pass to separate dev server chokidar for watching
+  aliases: {}, // Aliasing feature
   indexFileName: "index.html", // Allow custom index file name
-  useCache: false,      // Use a cache for file contents
+  useCache: false, // Use a cache for file contents
   messageOnStart: ({ hosts, startupTime, version, options }) => {
     let hostsStr = " started";
-    if(Array.isArray(hosts) && hosts.length > 0) {
+    if (Array.isArray(hosts) && hosts.length > 0) {
       // TODO what happens when the cert doesn’t cover non-localhost hosts?
       hostsStr = ` at ${hosts.join(" or ")}`;
     }
@@ -45,7 +46,7 @@ const DEFAULT_OPTIONS = {
     return `Server${hostsStr}${options.showVersion ? ` (v${version})` : ""}`;
   },
 
-  onRequest: {},        // Maps URLPatterns to dynamic callback functions that run on a request from a client.
+  onRequest: {}, // Maps URLPatterns to dynamic callback functions that run on a request from a client.
 
   // Example:
   // "/foo/:name": function({ url, pattern, patternGroups }) {
@@ -62,8 +63,8 @@ const DEFAULT_OPTIONS = {
     info: console.log,
     log: console.log,
     error: console.error,
-  }
-}
+  },
+};
 
 class EleventyDevServer {
   static getServer(...args) {
@@ -71,19 +72,19 @@ class EleventyDevServer {
   }
 
   constructor(name, dir, options = {}) {
-    debug("Creating new Dev Server instance.")
+    debug("Creating new Dev Server instance.");
     this.name = name;
     this.normalizeOptions(options);
 
     this.fileCache = {};
     // Directory to serve
-    if(!dir) {
+    if (!dir) {
       throw new Error("Missing `dir` to serve.");
     }
     this.dir = dir;
     this.logger = this.options.logger;
 
-    if(this.options.watch.length > 0) {
+    if (this.options.watch.length > 0) {
       this.getWatcher();
     }
   }
@@ -92,15 +93,19 @@ class EleventyDevServer {
     this.options = Object.assign({}, DEFAULT_OPTIONS, options);
 
     // better names for options https://github.com/11ty/eleventy-dev-server/issues/41
-    if(options.folder !== undefined) {
+    if (options.folder !== undefined) {
       this.options.injectedScriptsFolder = options.folder;
       delete this.options.folder;
     }
-    if(options.domdiff !== undefined) {
+    if (options.cssforcereload !== undefined) {
+      this.options.cssForceReload = options.cssforcereload;
+      delete this.options.cssForceReload;
+    }
+    if (options.domdiff !== undefined) {
       this.options.domDiff = options.domdiff;
       delete this.options.domdiff;
     }
-    if(options.enabled !== undefined) {
+    if (options.enabled !== undefined) {
       this.options.liveReload = options.enabled;
       delete this.options.enabled;
     }
@@ -109,7 +114,7 @@ class EleventyDevServer {
   }
 
   get watcher() {
-    if(!this._watcher) {
+    if (!this._watcher) {
       debug("Watching %O", this.options.watch);
       // TODO if using Eleventy and `watch` option includes output folder (_site) this will trigger two update events!
       this._watcher = chokidar.watch(this.options.watch, {
@@ -126,12 +131,12 @@ class EleventyDevServer {
       });
 
       this._watcher.on("change", (path) => {
-        this.logger.log( `File changed: ${path} (skips build)` );
+        this.logger.log(`File changed: ${path} (skips build)`);
         this.reloadFiles([path]);
       });
 
       this._watcher.on("add", (path) => {
-        this.logger.log( `File added: ${path} (skips build)` );
+        this.logger.log(`File added: ${path} (skips build)`);
         this.reloadFiles([path]);
       });
     }
@@ -144,8 +149,8 @@ class EleventyDevServer {
   }
 
   watchFiles(files) {
-    if(Array.isArray(files)) {
-      files = files.map(entry => TemplatePath.stripLeadingDotSlash(entry));
+    if (Array.isArray(files)) {
+      files = files.map((entry) => TemplatePath.stripLeadingDotSlash(entry));
 
       debug("Also watching %O", files);
       this.watcher.add(files);
@@ -153,13 +158,13 @@ class EleventyDevServer {
   }
 
   cleanupPathPrefix(pathPrefix) {
-    if(!pathPrefix || pathPrefix === "/") {
+    if (!pathPrefix || pathPrefix === "/") {
       return "/";
     }
-    if(!pathPrefix.startsWith("/")) {
-      pathPrefix = `/${pathPrefix}`
+    if (!pathPrefix.startsWith("/")) {
+      pathPrefix = `/${pathPrefix}`;
     }
-    if(!pathPrefix.endsWith("/")) {
+    if (!pathPrefix.endsWith("/")) {
       pathPrefix = `${pathPrefix}/`;
     }
     return pathPrefix;
@@ -167,27 +172,31 @@ class EleventyDevServer {
 
   // Allowed list of files that can be served from outside `dir`
   setAliases(aliases) {
-    if(aliases) {
+    if (aliases) {
       this.passthroughAliases = aliases;
-      debug( "Setting aliases (emulated passthrough copy) %O", aliases );
+      debug("Setting aliases (emulated passthrough copy) %O", aliases);
     }
   }
 
   matchPassthroughAlias(url) {
-    let aliases = Object.assign({}, this.options.aliases, this.passthroughAliases);
-    for(let targetUrl in aliases) {
-      if(!targetUrl) {
+    let aliases = Object.assign(
+      {},
+      this.options.aliases,
+      this.passthroughAliases,
+    );
+    for (let targetUrl in aliases) {
+      if (!targetUrl) {
         continue;
       }
 
       let file = aliases[targetUrl];
-      if(url.startsWith(targetUrl)) {
+      if (url.startsWith(targetUrl)) {
         let inputDirectoryPath = file + url.slice(targetUrl.length);
 
         // e.g. addPassthroughCopy("img/") but <img src="/img/built/IdthKOzqFA-350.png">
         // generated by the image plugin (written to the output folder)
         // If they do not exist in the input directory, this will fallback to the output directory.
-        if(fs.existsSync(inputDirectoryPath)) {
+        if (fs.existsSync(inputDirectoryPath)) {
           return inputDirectoryPath;
         }
       }
@@ -203,10 +212,10 @@ class EleventyDevServer {
 
   getOutputDirFilePath(filepath, filename = "") {
     let computedPath;
-    if(filename === ".html") {
+    if (filename === ".html") {
       // avoid trailing slash for filepath/.html requests
       let prefix = path.join(this.dir, filepath);
-      if(prefix.endsWith(path.sep)) {
+      if (prefix.endsWith(path.sep)) {
         prefix = prefix.substring(0, prefix.length - path.sep.length);
       }
       computedPath = prefix + filename;
@@ -216,11 +225,12 @@ class EleventyDevServer {
 
     computedPath = decodeURIComponent(computedPath);
 
-    if(!filename) { // is a direct URL request (not an implicit .html or index.html add)
+    if (!filename) {
+      // is a direct URL request (not an implicit .html or index.html add)
       let alias = this.matchPassthroughAlias(filepath);
 
-      if(alias) {
-        if(!this.isFileInDirectory(path.resolve("."), alias)) {
+      if (alias) {
+        if (!this.isFileInDirectory(path.resolve("."), alias)) {
           throw new Error("Invalid path");
         }
 
@@ -229,7 +239,7 @@ class EleventyDevServer {
     }
 
     // Check that the file is in the output path (error if folks try use `..` in the filepath)
-    if(!this.isFileInDirectory(this.dir, computedPath)) {
+    if (!this.isFileInDirectory(this.dir, computedPath)) {
       throw new Error("Invalid path");
     }
 
@@ -259,11 +269,11 @@ class EleventyDevServer {
     // Remove PathPrefix from start of URL
     if (this.options.pathPrefix !== "/") {
       // Requests to root should redirect to new pathPrefix
-      if(url === "/") {
+      if (url === "/") {
         return {
           statusCode: 302,
           url: this.options.pathPrefix,
-        }
+        };
       }
 
       // Requests to anything outside of root should fail with 404
@@ -284,7 +294,10 @@ class EleventyDevServer {
       };
     }
 
-    let indexHtmlPath = this.getOutputDirFilePath(url, this.options.indexFileName);
+    let indexHtmlPath = this.getOutputDirFilePath(
+      url,
+      this.options.indexFileName,
+    );
     let indexHtmlExists = fs.existsSync(indexHtmlPath);
 
     let htmlPath = this.getOutputDirFilePath(url, ".html");
@@ -327,23 +340,25 @@ class EleventyDevServer {
   }
 
   _getFileContents(localpath, rootDir) {
-    if(this.options.useCache && this.fileCache[localpath]) {
+    if (this.options.useCache && this.fileCache[localpath]) {
       return this.fileCache[localpath];
     }
 
     let filepath;
     let searchLocations = [];
 
-    if(rootDir) {
+    if (rootDir) {
       searchLocations.push(TemplatePath.absolutePath(rootDir, localpath));
     }
 
     // fallbacks for file:../ installations
     searchLocations.push(TemplatePath.absolutePath(__dirname, localpath));
-    searchLocations.push(TemplatePath.absolutePath(__dirname, "../../../", localpath));
+    searchLocations.push(
+      TemplatePath.absolutePath(__dirname, "../../../", localpath),
+    );
 
-    for(let loc of searchLocations) {
-      if(fs.existsSync(loc)) {
+    for (let loc of searchLocations) {
+      if (fs.existsSync(loc)) {
         filepath = loc;
         break;
       }
@@ -353,18 +368,18 @@ class EleventyDevServer {
       encoding: this.options.encoding,
     });
 
-    if(this.options.useCache) {
+    if (this.options.useCache) {
       this.fileCache[localpath] = contents;
     }
-    return contents;
+    return `const cssForceReload = ${this.options.cssForceReload};\n  ${contents}`;
   }
 
   augmentContentWithNotifier(content, inlineContents = false, options = {}) {
     let { integrityHash, scriptContents } = options;
-    if(!scriptContents) {
+    if (!scriptContents) {
       scriptContents = this._getFileContents("./client/reload-client.js");
     }
-    if(!integrityHash) {
+    if (!integrityHash) {
       integrityHash = ssri.fromData(scriptContents);
     }
 
@@ -376,7 +391,8 @@ class EleventyDevServer {
     }
 
     // If the HTML document contains an importmap, insert the module script after the importmap element
-    let importMapRegEx = /<script type=\\?importmap\\?[^>]*>(\n|.)*?<\/script>/gmi;
+    let importMapRegEx =
+      /<script type=\\?importmap\\?[^>]*>(\n|.)*?<\/script>/gim;
     let importMapMatch = content.match(importMapRegEx)?.[0];
 
     if (importMapMatch) {
@@ -446,7 +462,7 @@ class EleventyDevServer {
   }
 
   async eleventyDevServerMiddleware(req, res, next) {
-    for(let urlPatternString in this.options.onRequest) {
+    for (let urlPatternString in this.options.onRequest) {
       let fn = this.options.onRequest[urlPatternString];
       let fullPath = this.getServerPath(urlPatternString);
       let p = new URLPattern({ pathname: fullPath });
@@ -457,28 +473,28 @@ class EleventyDevServer {
 
       let u = new URL(fullUrl);
 
-      if(match) {
+      if (match) {
         let result = await fn({
           url: u,
           pattern: p,
           patternGroups: match?.pathname?.groups || {},
         });
 
-        if(!result && result !== "") {
+        if (!result && result !== "") {
           continue;
         }
 
-        if(typeof result === "string") {
+        if (typeof result === "string") {
           return res.end(result);
         }
 
-        if(isPlainObject(result)) {
-          if(typeof result.status === "number") {
+        if (isPlainObject(result)) {
+          if (typeof result.status === "number") {
             res.statusCode = result.status;
           }
 
-          if(isPlainObject(result.headers)) {
-            for(let name in result.headers) {
+          if (isPlainObject(result.headers)) {
+            for (let name in result.headers) {
               res.setHeader(name, result.headers[name]);
             }
           }
@@ -486,19 +502,28 @@ class EleventyDevServer {
           return res.end(result.body || "");
         }
 
-        throw new Error(`Invalid return type from \`onRequest\` pattern for ${urlPatternString}: expected string or object.`);
+        throw new Error(
+          `Invalid return type from \`onRequest\` pattern for ${urlPatternString}: expected string or object.`,
+        );
       }
     }
 
-    if(req.url === `/${this.options.injectedScriptsFolder}/reload-client.js`) {
-      if(this.options.liveReload) {
+    if (req.url === `/${this.options.injectedScriptsFolder}/reload-client.js`) {
+      if (this.options.liveReload) {
         res.setHeader("Content-Type", mime.getType("js"));
         return res.end(this._getFileContents("./client/reload-client.js"));
       }
-    } else if(req.url === `/${this.options.injectedScriptsFolder}/morphdom.js`) {
-      if(this.options.domDiff) {
+    } else if (
+      req.url === `/${this.options.injectedScriptsFolder}/morphdom.js`
+    ) {
+      if (this.options.domDiff) {
         res.setHeader("Content-Type", mime.getType("js"));
-        return res.end(this._getFileContents("./node_modules/morphdom/dist/morphdom-esm.js", path.resolve(".")));
+        return res.end(
+          this._getFileContents(
+            "./node_modules/morphdom/dist/morphdom-esm.js",
+            path.resolve("."),
+          ),
+        );
       }
     }
 
@@ -516,10 +541,10 @@ class EleventyDevServer {
         if (e.statusCode === 404) {
           let localPath = TemplatePath.stripLeadingSubPath(
             e.path,
-            TemplatePath.absolutePath(this.dir)
+            TemplatePath.absolutePath(this.dir),
           );
           this.logger.error(
-            `HTTP ${e.statusCode}: Template not found in output directory (${this.dir}): ${localPath}`
+            `HTTP ${e.statusCode}: Template not found in output directory (${this.dir}): ${localPath}`,
           );
         } else {
           this.logger.error(`HTTP ${e.statusCode}: ${e.message}`);
@@ -528,13 +553,13 @@ class EleventyDevServer {
     });
 
     // middleware (maybe a serverless request) already set a body upstream, skip this part
-    if(!res._shouldForceEnd) {
+    if (!res._shouldForceEnd) {
       let match = this.mapUrlToFilePath(req.url);
-      debug( req.url, match );
+      debug(req.url, match);
 
       if (match) {
         // Content-Range request, probably Safari trying to stream video
-        if (req.headers.range)  {
+        if (req.headers.range) {
           return send(req, match.filepath).pipe(res);
         }
 
@@ -550,7 +575,10 @@ class EleventyDevServer {
         }
 
         let raw404Path = this.getOutputDirFilePath("404.html");
-        if(match.statusCode === 404 && this.isOutputFilePathExists(raw404Path)) {
+        if (
+          match.statusCode === 404 &&
+          this.isOutputFilePathExists(raw404Path)
+        ) {
           res.statusCode = match.statusCode;
           res.isCustomErrorPage = true;
           return this.renderFile(raw404Path, res);
@@ -558,11 +586,13 @@ class EleventyDevServer {
       }
     }
 
-    if(res.body && !res.bodyUsed) {
-      if(res._shouldForceEnd) {
+    if (res.body && !res.bodyUsed) {
+      if (res._shouldForceEnd) {
         res.end();
       } else {
-        let err = new Error("A response was never written to the stream. Are you missing a server middleware with `res.end()`?");
+        let err = new Error(
+          "A response was never written to the stream. Are you missing a server middleware with `res.end()`?",
+        );
         err.statusCode = 500;
         lastNext(err);
         return;
@@ -572,25 +602,33 @@ class EleventyDevServer {
     lastNext();
   }
 
-  async onRequestHandler (req, res) {
-    res = wrapResponse(res, content => {
-
+  async onRequestHandler(req, res) {
+    res = wrapResponse(res, (content) => {
       // check to see if this is a client fetch and not a navigation
-      let isXHR = req.headers["sec-fetch-mode"] && req.headers["sec-fetch-mode"] != "navigate";
+      let isXHR =
+        req.headers["sec-fetch-mode"] &&
+        req.headers["sec-fetch-mode"] != "navigate";
 
-      if(this.options.liveReload !== false && !isXHR) {
+      if (this.options.liveReload !== false && !isXHR) {
         let scriptContents = this._getFileContents("./client/reload-client.js");
         let integrityHash = ssri.fromData(scriptContents);
 
         // Bare (not-custom) finalhandler error pages have a Content-Security-Policy `default-src 'none'` that
         // prevents the client script from executing, so we override it
-        if(res.statusCode !== 200 && !res.isCustomErrorPage) {
-          res.setHeader("Content-Security-Policy", `script-src '${integrityHash}'`);
+        if (res.statusCode !== 200 && !res.isCustomErrorPage) {
+          res.setHeader(
+            "Content-Security-Policy",
+            `script-src '${integrityHash}'`,
+          );
         }
-        return this.augmentContentWithNotifier(content, res.statusCode !== 200, {
-          scriptContents,
-          integrityHash
-        });
+        return this.augmentContentWithNotifier(
+          content,
+          res.statusCode !== 200,
+          {
+            scriptContents,
+            integrityHash,
+          },
+        );
       }
 
       return content;
@@ -611,9 +649,9 @@ class EleventyDevServer {
     let bound = [];
     let next;
 
-    for(let ware of middlewares) {
+    for (let ware of middlewares) {
       let fn;
-      if(next) {
+      if (next) {
         fn = ware.bind(this, req, res, next);
       } else {
         fn = ware.bind(this, req, res);
@@ -630,8 +668,8 @@ class EleventyDevServer {
 
   getHosts() {
     let hosts = new Set();
-    if(this.options.showAllHosts) {
-      for(let host of devip()) {
+    if (this.options.showAllHosts) {
+      for (let host of devip()) {
         hosts.add(this.getServerUrl(host));
       }
     }
@@ -648,7 +686,7 @@ class EleventyDevServer {
 
     // Check for secure server requirements, otherwise use HTTP
     let { key, cert } = this.options.https;
-    if(key && cert) {
+    if (key && cert) {
       const { createSecureServer } = require("http2");
 
       let options = {
@@ -658,7 +696,10 @@ class EleventyDevServer {
         key: fs.readFileSync(key),
         cert: fs.readFileSync(cert),
       };
-      this._server = createSecureServer(options, this.onRequestHandler.bind(this));
+      this._server = createSecureServer(
+        options,
+        this.onRequestHandler.bind(this),
+      );
       this._serverProtocol = "https:";
     } else {
       const { createServer } = require("http");
@@ -677,12 +718,12 @@ class EleventyDevServer {
             err.port,
             err.port + 1,
             this.portRetryCount,
-            this.options.portReassignmentRetryCount
+            this.options.portReassignmentRetryCount,
           );
           this._serverListen(err.port + 1);
         } else {
           throw new Error(
-            `Tried ${this.options.portReassignmentRetryCount} different ports but they were all in use. You can a different starter port using --port on the command line.`
+            `Tried ${this.options.portReassignmentRetryCount} different ports but they were all in use. You can a different starter port using --port on the command line.`,
           );
         }
       } else {
@@ -693,7 +734,10 @@ class EleventyDevServer {
     this._server.on("listening", (e) => {
       this.setupReloadNotifier();
 
-      let logMessageCallback = typeof this.options.messageOnStart === "function" ? this.options.messageOnStart : () => false;
+      let logMessageCallback =
+        typeof this.options.messageOnStart === "function"
+          ? this.options.messageOnStart
+          : () => false;
       let hosts = this.getHosts();
       let message = logMessageCallback({
         hosts,
@@ -703,7 +747,7 @@ class EleventyDevServer {
         startupTime: Date.now() - this.start,
       });
 
-      if(message) {
+      if (message) {
         this.logger.info(message);
       }
     });
@@ -719,14 +763,14 @@ class EleventyDevServer {
 
   getServerPath(pathname) {
     // duplicate slashes
-    if(this.options.pathPrefix.endsWith("/") && pathname.startsWith("/")) {
+    if (this.options.pathPrefix.endsWith("/") && pathname.startsWith("/")) {
       pathname = pathname.slice(1);
     }
     return `${this.options.pathPrefix}${pathname}`;
   }
 
   getServerUrlRaw(host, pathname = "", isRaw = true) {
-    if(!this._server || !this._serverProtocol) {
+    if (!this._server || !this._serverProtocol) {
       throw new Error("Access to `serverUrl` property not yet available.");
     }
 
@@ -739,12 +783,12 @@ class EleventyDevServer {
   }
 
   async getPort() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       this.server.on("listening", (e) => {
         let { port } = this._server.address();
         resolve(port);
       });
-    })
+    });
   }
 
   serve(port) {
@@ -784,11 +828,11 @@ class EleventyDevServer {
 
   // Broadcasts to all open browser windows
   sendUpdateNotification(obj) {
-    if(!this.updateServer?.clients) {
+    if (!this.updateServer?.clients) {
       return;
     }
 
-    for(let client of this.updateServer.clients) {
+    for (let client of this.updateServer.clients) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(obj));
       }
@@ -798,7 +842,7 @@ class EleventyDevServer {
   // Helper for promisifying close methods with callbacks, like http.Server or ws.WebSocketServer.
   _closeServer(server) {
     return new Promise((resolve, reject) => {
-      server.close(err => {
+      server.close((err) => {
         if (err) {
           reject(err);
         }
@@ -820,17 +864,17 @@ class EleventyDevServer {
       status: "disconnected",
     });
 
-    if(this.updateServer) {
+    if (this.updateServer) {
       // Close all existing WS connections.
-      this.updateServer?.clients.forEach(socket => socket.close());
+      this.updateServer?.clients.forEach((socket) => socket.close());
       await this._closeServer(this.updateServer);
     }
 
-    if(this._server?.listening) {
+    if (this._server?.listening) {
       await this._closeServer(this.server);
     }
 
-    if(this._watcher) {
+    if (this._watcher) {
       await this._watcher.close();
       delete this._watcher;
     }
@@ -850,8 +894,8 @@ class EleventyDevServer {
   // /resource/ <= /resource/index.html
   // /resource <= resource.html
   getUrlsFromFilePath(path) {
-    if(this.dir === ".") {
-      path = `/${path}`
+    if (this.dir === ".") {
+      path = `/${path}`;
     } else {
       path = path.slice(this.dir.length);
     }
@@ -859,9 +903,9 @@ class EleventyDevServer {
     let urls = [];
     urls.push(path);
 
-    if(path.endsWith(`/${this.options.indexFileName}`)) {
+    if (path.endsWith(`/${this.options.indexFileName}`)) {
       urls.push(path.slice(0, -1 * this.options.indexFileName.length));
-    } else if(path.endsWith(".html")) {
+    } else if (path.endsWith(".html")) {
       urls.push(path.slice(0, -1 * ".html".length));
     }
 
@@ -871,7 +915,7 @@ class EleventyDevServer {
   // [{ url, inputPath, content }]
   getBuildTemplatesFromFilePath(path) {
     // We can skip this for non-html files, dom-diffing will not apply
-    if(!path.endsWith(".html")) {
+    if (!path.endsWith(".html")) {
       return [];
     }
 
@@ -879,31 +923,33 @@ class EleventyDevServer {
     let obj = {
       inputPath: path,
       content: fs.readFileSync(path, "utf8"),
-    }
+    };
 
-    return urls.map(url => {
+    return urls.map((url) => {
       return Object.assign({ url }, obj);
     });
   }
 
   reloadFiles(files, useDomDiffingForHtml = true) {
-    if(!Array.isArray(files)) {
+    if (!Array.isArray(files)) {
       throw new Error("reloadFiles method requires an array of file paths.");
     }
 
     let subtype;
-    if(!files.some((entry) => !entry.endsWith(".css"))) {
+    if (!files.some((entry) => !entry.endsWith(".css"))) {
       // all css changes
       subtype = "css";
     }
 
     let templates = [];
-    if(useDomDiffingForHtml && this.options.domDiff) {
-      for(let filePath of files) {
-        if(!filePath.endsWith(".html")) {
+    if (useDomDiffingForHtml && this.options.domDiff) {
+      for (let filePath of files) {
+        if (!filePath.endsWith(".html")) {
           continue;
         }
-        for(let templateEntry of this.getBuildTemplatesFromFilePath(filePath)) {
+        for (let templateEntry of this.getBuildTemplatesFromFilePath(
+          filePath,
+        )) {
           templates.push(templateEntry);
         }
       }
@@ -913,24 +959,23 @@ class EleventyDevServer {
       files,
       subtype,
       build: {
-        templates
-      }
+        templates,
+      },
     });
   }
 
   reload(event) {
     let { subtype, files, build } = event;
     if (build?.templates) {
-      build.templates = build.templates
-        .filter(entry => {
-          if(!this.options.domDiff) {
-            // Don’t include any files if the dom diffing option is disabled
-            return false;
-          }
+      build.templates = build.templates.filter((entry) => {
+        if (!this.options.domDiff) {
+          // Don’t include any files if the dom diffing option is disabled
+          return false;
+        }
 
-          // Filter to only include watched templates that were updated
-          return (files || []).includes(entry.inputPath);
-        });
+        // Filter to only include watched templates that were updated
+        return (files || []).includes(entry.inputPath);
+      });
     }
 
     this.sendUpdateNotification({

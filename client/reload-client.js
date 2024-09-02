@@ -13,10 +13,10 @@ class Util {
   static output(type, ...messages) {
     let now = new Date();
     let date = `${Util.pad(now.getUTCHours())}:${Util.pad(
-      now.getUTCMinutes()
+      now.getUTCMinutes(),
     )}:${Util.pad(now.getUTCSeconds())}.${Util.pad(
       now.getUTCMilliseconds(),
-      3
+      3,
     )}`;
     console[type](`[11ty][${date} UTC]`, ...messages);
   }
@@ -35,13 +35,15 @@ class Util {
 
     let docEl = document.documentElement;
     // Remove old
-    let removedAttrs = docEl.getAttributeNames().filter(name => !newAttrs.includes(name));
-    for(let attr of removedAttrs) {
+    let removedAttrs = docEl
+      .getAttributeNames()
+      .filter((name) => !newAttrs.includes(name));
+    for (let attr of removedAttrs) {
       docEl.removeAttribute(attr);
     }
 
     // Add new
-    for(let attr of newAttrs) {
+    for (let attr of newAttrs) {
       docEl.setAttribute(attr, parsedDoc.getAttribute(attr));
     }
   }
@@ -49,18 +51,18 @@ class Util {
   static isEleventyLinkNodeMatch(from, to) {
     // Issue #18 https://github.com/11ty/eleventy-dev-server/issues/18
     // Don’t update a <link> if the _11ty searchParam is the only thing that’s different
-    if(from.tagName !== "LINK" || to.tagName !== "LINK") {
+    if (from.tagName !== "LINK" || to.tagName !== "LINK") {
       return false;
     }
 
     let oldWithoutHref = from.cloneNode();
     let newWithoutHref = to.cloneNode();
-    
+
     oldWithoutHref.removeAttribute("href");
     newWithoutHref.removeAttribute("href");
-    
+
     // if all other attributes besides href match
-    if(!oldWithoutHref.isEqualNode(newWithoutHref)) {
+    if (!oldWithoutHref.isEqualNode(newWithoutHref)) {
       return false;
     }
 
@@ -68,8 +70,9 @@ class Util {
     let newUrl = new URL(to.href);
 
     // morphdom wants to force href="style.css?_11ty" => href="style.css"
-    let isErasing = oldUrl.searchParams.has("_11ty") && !newUrl.searchParams.has("_11ty");
-    if(!isErasing) {
+    let isErasing =
+      oldUrl.searchParams.has("_11ty") && !newUrl.searchParams.has("_11ty");
+    if (!isErasing) {
       // not a match if _11ty has a new value (not being erased)
       return false;
     }
@@ -83,11 +86,11 @@ class Util {
 
   // https://github.com/patrick-steele-idem/morphdom/issues/178#issuecomment-652562769
   static runScript(source, target) {
-    let script = document.createElement('script');
+    let script = document.createElement("script");
 
     //copy over the attributes
-    for(let attr of [...source.attributes]) {
-      script.setAttribute(attr.nodeName ,attr.nodeValue);
+    for (let attr of [...source.attributes]) {
+      script.setAttribute(attr.nodeName, attr.nodeValue);
     }
 
     script.innerHTML = source.innerHTML;
@@ -135,15 +138,15 @@ class EleventyReload {
             window.location.reload();
           }
 
-          if(data.status === "connected") {
+          if (data.status === "connected") {
             // With multiple windows, only show one connection message
-            if(!this.isConnected) {
+            if (!this.isConnected) {
               Util.log(Util.capitalize(data.status));
             }
 
             this.connectionMessageShown = true;
           } else {
-            if(data.status === "disconnected") {
+            if (data.status === "disconnected") {
               this.addReconnectListeners();
             }
 
@@ -161,7 +164,7 @@ class EleventyReload {
       // no reconnection when the connect is already open
       this.removeReconnectListeners();
     });
-    
+
     socket.addEventListener("close", () => {
       this.connectionMessageShown = false;
       this.addReconnectListeners();
@@ -169,12 +172,13 @@ class EleventyReload {
   }
 
   reconnect() {
-    Util.log( "Reconnecting…" );
+    Util.log("Reconnecting…");
     this.init({ mode: "reconnect" });
   }
 
   async onreload({ subtype, files, build }) {
-    if (subtype === "css") {
+    /*if cssForceReload, refresh the page when the buld is finished*/
+    if (subtype === "css" && !cssForceReload) {
       for (let link of document.querySelectorAll(`link[rel="stylesheet"]`)) {
         if (link.href) {
           let url = new URL(link.href);
@@ -187,7 +191,7 @@ class EleventyReload {
       let morphed = false;
 
       try {
-        if((build.templates || []).length > 0) {
+        if ((build.templates || []).length > 0) {
           // Important: using `./` in `./morphdom.js` allows the special `.11ty` folder to be changed upstream
           const { default: morphdom } = await import(`./morphdom.js`);
 
@@ -202,7 +206,10 @@ class EleventyReload {
                 morphdom(document.documentElement, template.content, {
                   childrenOnly: true,
                   onBeforeElUpdated: function (fromEl, toEl) {
-                    if (fromEl.nodeName === "SCRIPT" && toEl.nodeName === "SCRIPT") {
+                    if (
+                      fromEl.nodeName === "SCRIPT" &&
+                      toEl.nodeName === "SCRIPT"
+                    ) {
                       Util.runScript(toEl, fromEl);
                       return false;
                     }
@@ -213,14 +220,14 @@ class EleventyReload {
                       return false;
                     }
 
-                    if(Util.isEleventyLinkNodeMatch(fromEl, toEl)) {
+                    if (Util.isEleventyLinkNodeMatch(fromEl, toEl)) {
                       return false;
                     }
 
                     return true;
                   },
                   onNodeAdded: function (node) {
-                    if (node.nodeName === 'SCRIPT') {
+                    if (node.nodeName === "SCRIPT") {
                       Util.runScript(node);
                     }
                   },
@@ -233,8 +240,8 @@ class EleventyReload {
             }
           }
         }
-      } catch(e) {
-        Util.error( "Morphdom error", e );
+      } catch (e) {
+        Util.error("Morphdom error", e);
       }
 
       if (!morphed) {
