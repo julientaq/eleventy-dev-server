@@ -47,7 +47,7 @@ Arguments:
 
      --cssforcereload       (enabled)
      --cssforcereload=false (disabled, default)
-       Reload the page on css update
+       Force reload the page when updated a css file 
 
      --help`;
   }
